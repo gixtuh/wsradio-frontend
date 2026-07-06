@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WSRadio</title>
+    <link rel="icon" href="/wsradio/costume4.png">
+    
+    <style>
+        body {
+            margin: 0;
+            background: #000;
+            color: #fff;
+            font-family: system-ui, Arial;
+            overflow: hidden;
+        }
+        
+        .layout {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            grid-template-rows: 1fr 90px;
+            height: 100vh;
+            transition: grid-template-columns 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .layout.sidebar-hidden {
+            grid-template-columns: 0px 1fr;
+        }
+        
+        .sidebar {
+            grid-row: 1 / 3;
+            background: #050505;
+            border-right: 1px solid rgba(255,255,255,0.08);
+            overflow: hidden;
+            position: relative;
+            min-width: 0;
+            transition: opacity 0.25s ease, transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+            transform-origin: left;
+        }
+        
+        .layout.sidebar-hidden .sidebar {
+            opacity: 0;
+            transform: translateX(-20px);
+            pointer-events: none;
+        }
+        
+        .sidebar-inner {
+            padding: 12px;
+            overflow-y: auto;
+            height: 100%;
+            box-sizing: border-box;
+            width: 260px;
+            position: relative;
+        }
+        
+        .sidebar-title {
+            font-size: 12px;
+            opacity: 0.6;
+            margin-bottom: 10px;
+        }
+        
+        .history-item {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        
+        .history-item:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        
+        .history-item img {
+            width: 34px;
+            height: 34px;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }
+        
+        .clear-history {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(0,0,0,0.4);
+            color: white;
+            padding: 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            transition: 0.2s ease;
+        }
+        
+        .clear-history:hover {
+            background: rgba(255,255,255,0.08);
+            transform: scale(1.05);
+        }
+        
+        .main {
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .tab-bar {
+            display: flex;
+            gap: 6px;
+            padding: 16px 20px 0;
+            flex-shrink: 0;
+        }
+        
+        .tab-btn {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.12);
+            color: rgba(255,255,255,0.4);
+            padding: 6px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-family: system-ui, Arial;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+        }
+        
+        .tab-btn.active {
+            background: rgba(255,255,255,0.08);
+            color: white;
+            border-color: rgba(255,255,255,0.25);
+        }
+        
+        .tab-btn:hover:not(.active) {
+            color: rgba(255,255,255,0.75);
+            background: rgba(255,255,255,0.04);
+        }
+        
+        .tab-panels {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .tab-panel {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            padding: 20px 24px 24px;
+            overflow-y: auto;
+            will-change: transform;
+            transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        
+        #playerPanel   { transform: translateX(0); }
+        #settingsPanel { transform: translateX(100%); }
+        
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .now-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding-bottom: 20px;
+            margin-bottom: 22px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        
+        .art-wrap {
+            width: 72px;
+            height: 72px;
+            flex-shrink: 0;
+        }
+        
+        .big-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 12px;
+            object-fit: cover;
+        }
+        
+        .track-info {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            overflow: hidden;
+        }
+        
+        .big-title {
+            font-size: 20px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .big-author {
+            font-size: 13px;
+            opacity: 0.5;
+        }
+        
+        .section-label {
+            font-size: 10px;
+            font-weight: 600;
+            opacity: 0.3;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 8px;
+        }
+        
+        .settings-section {
+            margin-bottom: 22px;
+        }
+        
+        .settings-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .settings-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            gap: 16px;
+        }
+        
+        .settings-row:last-child {
+            border-bottom: none;
+        }
+        
+        .settings-row.col {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+        }
+        
+        .row-label {
+            font-size: 13px;
+        }
+        
+        .row-sub {
+            font-size: 11px;
+            opacity: 0.38;
+            margin-top: 2px;
+        }
+        
+        .toggle-wrap {
+            position: relative;
+            width: 40px;
+            height: 22px;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        
+        .toggle-wrap input {
+            opacity: 0;
+            position: absolute;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-track {
+            position: absolute;
+            inset: 0;
+            border-radius: 100px;
+            border: 1px solid rgba(255,255,255,0.18);
+            background: rgba(255,255,255,0.06);
+            transition: background 0.25s ease, border-color 0.25s ease;
+        }
+        
+        .toggle-wrap input:checked + .toggle-track {
+            background: white;
+            border-color: white;
+        }
+        
+        .toggle-thumb {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.45);
+            transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+            background 0.25s ease;
+            pointer-events: none;
+        }
+        
+        .toggle-wrap input:checked ~ .toggle-thumb {
+            transform: translateX(18px);
+            background: black;
+        }
+        
+        .volume-row {
+            padding: 12px 14px 14px;
+        }
+        
+        .volume-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .volume-label { font-size: 13px; }
+        
+        .volume-val {
+            font-size: 12px;
+            opacity: 0.38;
+            min-width: 36px;
+            text-align: right;
+        }
+        
+        .vol-slider {
+            width: 100%;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 4px;
+            border-radius: 100px;
+            background: linear-gradient(to right, white 100%, rgba(255,255,255,0.15) 100%);
+            outline: none;
+            cursor: pointer;
+            display: block;
+        }
+        
+        .vol-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+        }
+        
+        .vol-slider::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: white;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .ws-input {
+            width: 100%;
+            box-sizing: border-box;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: white;
+            padding: 9px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: system-ui, Arial;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        
+        .ws-input:focus {
+            border-color: rgba(255,255,255,0.35);
+        }
+        
+        .ws-connect-btn {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.14);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-family: system-ui, Arial;
+            cursor: pointer;
+            transition: background 0.2s;
+            align-self: flex-start;
+        }
+        
+        .ws-connect-btn:hover { background: rgba(255,255,255,0.11); }
+        
+        .repo-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: white;
+            padding: 9px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-family: system-ui, Arial;
+            text-decoration: none;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        
+        .repo-btn:hover {
+            background: rgba(255,255,255,0.09);
+            border-color: rgba(255,255,255,0.22);
+        }
+        
+        .player {
+            grid-column: 2;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 10px;
+            background: #050505;
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+        
+        #duration {
+            text-align: right;
+        }
+        
+        .progress-wrap {
+            flex: 1;
+            display: flex;
+            align-items: center;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 5px;
+            border-radius: 100px;
+            border: 1px solid white;
+            overflow: hidden;
+            background: black;
+        }
+        
+        #progress-fill {
+            height: 100%;
+            width: 0%;
+            background: white;
+            border-radius: 100px;
+            transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        
+        .icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            object-fit: cover;
+            transition: opacity 0.35s ease, transform 0.35s ease;
+        }
+        
+        .meta {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .icon, .title, .author {
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+        
+        .title {
+            font-weight: 600;
+            transition: opacity 0.35s ease;
+        }
+        
+        .author {
+            font-size: 12px;
+            opacity: 0.6;
+            transition: opacity 0.35s ease;
+        }
+        
+        .controls button {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: 0.2s;
+            z-index: 4;
+        }
+        
+        .controls button:hover { background: rgba(255,255,255,0.08); }
+        
+        #notifications {
+            position: fixed;
+            top: 12px;
+            right: 12px;
+            width: 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 9999;
+        }
+        
+        .notification {
+            border: 1px solid rgba(255,255,255,0.9);
+            border-radius: 10px;
+            padding: 10px 12px;
+            color: white;
+            background: var(--bg, #222);
+            box-shadow: 0 0 20px var(--glow, rgba(255,255,255,0.2));
+            will-change: transform, opacity;
+            transform: translateX(130%);
+            opacity: 0;
+            transition:
+            transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+            opacity 0.5s ease;
+        }
+        
+        .no-animations * {
+            transition: none !important;
+            animation: none !important;
+        }
+    </style>
+    
+    <script>
+        let socket, mediaSource, sourceBuffer, audio;
+        let queue = [];
+        let started = false;
+        let currentDuration = 0;
+        let wsUrl = "";
+        let currentTime = 0;
+        let lastTime = 0;
+        let freezeStart = null;
+        let isBuffering = false;
+        let lastMeta = null;
+        let metaAnimating = false;
+        let currentTab = 'player';
+        let paused = true
+        
+        const MAX_QUEUE = 50;
+        const HISTORY_KEY = "wsradio_history";
+        const SETTINGS_KEY = "wsradio_settings";
+        
+        let settings = {
+            notifications: true,
+            historyEnabled: true,
+            saveHistory: true,
+            animations: true,
+            volume: 50,
+            sidebar: true,
+            wsUrl: "wss://wsradio.onrender.com"
+        };
+        
+        function saveSettings() {
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        }
+        
+        function loadSettings() {
+            const raw = localStorage.getItem(SETTINGS_KEY);
+            if (!raw) return;
+            
+            try {
+                const parsed = JSON.parse(raw);
+                settings = { ...settings, ...parsed };
+            } catch {}
+        }
+        
+        function waitForImage(img, src) {
+            return new Promise((resolve, reject) => {
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = src;
+                if (img.complete && img.naturalWidth > 0) resolve(img);
+            });
+        }
+        
+        function applySettingsToUI() {
+            const vol = document.getElementById("volSlider");
+            if (vol) {
+                vol.value = settings.volume;
+                setVolume(settings.volume);
+            }
+            
+            const ws = document.getElementById("wsUrlInput");
+            if (ws) ws.value = settings.wsUrl;
+            
+            const notif = document.querySelector("input[name='notifications']");
+            if (notif) notif.checked = settings.notifications;
+            
+            const saveHist = document.querySelector("input[name='saveHistory']");
+            if (saveHist) saveHist.checked = settings.saveHistory;
+            
+            const anim = document.querySelector("input[name='animations']");
+            if (anim) anim.checked = settings.animations;
+            
+            const sidebar = document.querySelector("input[name='sidebar']");
+            if (sidebar) sidebar.checked = settings.sidebar;
+        }
+        
+        document.addEventListener("DOMContentLoaded", () => {
+            audio = document.getElementById("audio");
+            
+            audio.addEventListener("play", syncPauseButton);
+            audio.addEventListener("pause", syncPauseButton);
+            
+            loadSettings();
+            applySettingsToUI();
+            setSidebar(settings.sidebar);
+            setAnimations(settings.animations);
+            
+            loadHistory();
+            connect(settings.wsUrl);
+        });
+        
+        
+        
+        function switchTab(tab) {
+            if (tab === currentTab) return;
+            
+            const playerPanel   = document.getElementById('playerPanel');
+            const settingsPanel = document.getElementById('settingsPanel');
+            const playerBtn     = document.getElementById('tabPlayer');
+            const settingsBtn   = document.getElementById('tabSettings');
+            
+            if (tab === 'settings') {
+                playerPanel.style.transform   = 'translateX(-100%)';
+                settingsPanel.style.transform = 'translateX(0)';
+            } else {
+                settingsPanel.style.transform = 'translateX(100%)';
+                playerPanel.style.transform   = 'translateX(0)';
+            }
+            
+            playerBtn.classList.toggle('active',   tab === 'player');
+            settingsBtn.classList.toggle('active', tab === 'settings');
+            currentTab = tab;
+        }
+        
+        
+        function updateVolSlider(val) {
+            const pct = val + '%';
+            document.getElementById('volVal').textContent = pct;
+            document.getElementById('volSlider').style.background =
+            `linear-gradient(to right, white ${pct}, rgba(255,255,255,0.15) ${pct})`;
+        }
+        
+        function setNotifications(enabled) {
+            settings.notifications = enabled;
+            saveSettings();
+        }
+        
+        function setVolume(val) {
+            settings.volume = Number(val);
+            if (audio) audio.volume = val / 100;
+            updateVolSlider(val);
+            saveSettings();
+        }
+        
+        function setSidebar(enabled) {
+            settings.sidebar = enabled;
+            
+            const layout = document.querySelector(".layout");
+            
+            if (enabled) {
+                layout.classList.remove("sidebar-hidden");
+            } else {
+                layout.classList.add("sidebar-hidden");
+            }
+            
+            saveSettings();
+        }
+        
+        function setSaveHistory(enabled) {
+            settings.saveHistory = enabled;
+            saveSettings();
+        }
+        
+        function setAnimations(enabled) {
+            settings.animations = enabled;
+            document.body.classList.toggle("no-animations", !enabled);
+            saveSettings();
+        }
+        
+        function connectFromInput() {
+            const val = document.getElementById("wsUrlInput").value.trim();
+            if (!val) return;
+            
+            settings.wsUrl = val;
+            saveSettings();
+            
+            paused = audio.paused
+            connect(val);
+            if (paused) {
+                audio.pause()
+            }
+        }
+        
+        
+        function setBuffering(state) {
+            if (metaAnimating) return;
+            const icon   = document.getElementById("icon");
+            const title  = document.getElementById("title");
+            const author = document.getElementById("author");
+            
+            if (state) {
+                icon.style.filter    = "blur(4px)";
+                icon.style.opacity   = "0.8";
+                icon.style.transform = "scale(0.8)";
+                title.style.opacity  = "0.4";
+                author.style.opacity = "0.4";
+            } else {
+                icon.style.filter    = "";
+                icon.style.opacity   = "1";
+                icon.style.transform = "scale(1)";
+                title.style.opacity  = "1";
+                author.style.opacity = "1";
+            }
+            isBuffering = state;
+        }
+        
+        function updatePlayerUI(info) {
+            const icon   = document.getElementById("icon");
+            const title  = document.getElementById("title");
+            const author = document.getElementById("author");
+            const group  = [icon, title, author];
+            
+            const changed =
+            !lastMeta ||
+            lastMeta.title  !== info.title  ||
+            lastMeta.author !== info.author ||
+            lastMeta.icon   !== info.icon;
+            
+            if (changed && lastMeta) addHistory(lastMeta);
+            if (!changed) { lastMeta = info; return; }
+            
+            metaAnimating = true;
+            
+            group.forEach(el => {
+                el.style.transition = "opacity 0.2s ease, transform 0.2s ease";
+                el.style.opacity    = "0";
+                el.style.transform  = "translateY(6px)";
+            });
+            
+            setTimeout(() => {
+                icon.src           = info.icon;
+                title.textContent  = info.title;
+                author.textContent = info.author;
+                lastMeta           = info;
+                
+                requestAnimationFrame(() => {
+                    group.forEach(el => {
+                        el.style.opacity   = "1";
+                        el.style.transform = "translateY(0)";
+                    });
+                });
+                
+                setTimeout(() => {
+                    metaAnimating = false;
+                    if (isBuffering) setBuffering(true);
+                }, 250);
+            }, 220);
+            
+            document.getElementById("bigIcon").src                  = info.icon;
+            document.getElementById("bigTitle").textContent          = info.title;
+            document.getElementById("bigAuthor").textContent         = info.author;
+        }
+        
+        setInterval(() => {
+            if (!audio || audio.paused) return;
+            const now = audio.currentTime;
+            if (now === lastTime) {
+                if (!freezeStart) freezeStart = Date.now();
+                if (Date.now() - freezeStart > 2000 && !isBuffering) setBuffering(true);
+            } else {
+                freezeStart = null;
+                if (isBuffering) setBuffering(false);
+            }
+            lastTime = now;
+        }, 200);
+        
+        setInterval(() => {
+            if (!audio || audio.paused || currentDuration <= 0 || !audio.buffered.length) return;
+            const bufferedEnd = audio.buffered.end(audio.buffered.length - 1);
+            if (bufferedEnd - audio.currentTime > 0.6)
+            audio.currentTime = Math.max(0, bufferedEnd - 0.05);
+        }, 100);
+        
+        setInterval(() => {
+            if (!audio) return;
+            function fmt(sec) {
+                sec = Math.floor(sec);
+                return `${Math.floor(sec / 60)}:${(sec % 60).toString().padStart(2, "0")}`;
+            }
+            document.getElementById("duration").textContent =
+            `${fmt(currentTime)} / ${fmt(currentDuration + 1)}`;
+        }, 100);
+        
+        setInterval(() => {
+            if (!audio || !currentDuration) return;
+            document.getElementById("progress-fill").style.width =
+            `${(currentTime / currentDuration) * 100}%`;
+        }, 100);
+        
+        
+        function pushChunk(chunk) {
+            if (!sourceBuffer || mediaSource.readyState !== "open") return;
+            if (queue.length > MAX_QUEUE) queue.shift();
+            queue.push(chunk);
+            processQueue();
+        }
+        
+        function processQueue() {
+            if (!sourceBuffer || sourceBuffer.updating || queue.length === 0) return;
+            try { sourceBuffer.appendBuffer(queue.shift()); } catch {}
+            sourceBuffer.addEventListener("updateend", processQueue, { once: true });
+        }
+        
+        function setupMediaSource() {
+            mediaSource = new MediaSource();
+            audio.src   = URL.createObjectURL(mediaSource);
+            mediaSource.addEventListener("sourceopen", () => {
+                sourceBuffer = mediaSource.addSourceBuffer("audio/mpeg");
+                sourceBuffer.mode = "sequence";
+            });
+        }
+        
+        
+        function saveHistory(song) {
+            if (!settings.saveHistory) return;
+            
+            let h = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+            h.unshift(song);
+            
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(0, 100)));
+        }
+        
+        function addHistory(song) {
+            const history = document.getElementById("history");
+            const item    = document.createElement("div");
+            item.className = "history-item";
+            item.innerHTML = `
+                <img src="${song.icon}" />
+                <div>
+                    <div style="font-size:13px">${song.title}</div>
+                    <div style="font-size:11px;opacity:0.6">${song.author}</div>
+                </div>`;
+            
+            const old = new Map();
+            Array.from(history.children).forEach(el => old.set(el, el.getBoundingClientRect()));
+            
+            item.style.opacity   = "0";
+            item.style.transform = "translateX(-30px)";
+            item.style.transition = "none";
+            history.prepend(item);
+            
+            requestAnimationFrame(() => {
+                Array.from(history.children).forEach(el => {
+                    const first = old.get(el);
+                    if (!first) return;
+                    const dy = first.top - el.getBoundingClientRect().top;
+                    el.style.transition = "none";
+                    el.style.transform  = `translateY(${dy}px)`;
+                    el.offsetHeight;
+                    el.style.transition = "transform 0.5s cubic-bezier(0.22,1,0.36,1)";
+                    el.style.transform  = "translateY(0)";
+                });
+                requestAnimationFrame(() => {
+                    item.style.transition =
+                    "opacity 0.35s ease, transform 0.35s cubic-bezier(0.22,1,0.36,1)";
+                    item.style.opacity   = "1";
+                    item.style.transform = "translateX(0)";
+                });
+            });
+            
+            saveHistory(song);
+        }
+        
+        function loadHistory() {
+            if (!settings.saveHistory) return;
+            const history = document.getElementById("history");
+            JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]").forEach(song => {
+                const item = document.createElement("div");
+                item.className = "history-item";
+                item.innerHTML = `
+                    <img src="${song.icon}" />
+                    <div>
+                        <div style="font-size:13px">${song.title}</div>
+                        <div style="font-size:11px;opacity:0.6">${song.author}</div>
+                    </div>`;
+                history.appendChild(item);
+            });
+        }
+        
+        function clearHistory() {
+            localStorage.removeItem(HISTORY_KEY);
+            const history = document.getElementById("history");
+            Array.from(history.children).forEach((el, i) => {
+                setTimeout(() => {
+                    el.style.transition = "opacity 0.25s ease, transform 0.25s ease";
+                    el.style.opacity    = "0";
+                    el.style.transform  = "translateX(-10px)";
+                }, i * 20);
+            });
+            setTimeout(() => { history.innerHTML = ""; }, 400);
+        }
+        
+        
+        function connect(url) {
+            wsUrl = url;
+            const inputEl = document.getElementById('wsUrlInput');
+            if (inputEl) inputEl.value = url;
+            if (socket) socket.close();
+            started = false;
+            setupMediaSource();
+            
+            socket = new WebSocket(wsUrl);
+            socket.binaryType = "arraybuffer";
+            
+            socket.onclose = () => {
+                if (started && wsUrl === url) {
+                    showNotification({
+                        title: "Disconnected from WSRadio",
+                        text: "Disconnected from " + wsUrl +
+                        "<br/><br/>Reload the page or go to Settings to enter a new URL.",
+                        color: "#570600"
+                    });
+                }
+            };
+            
+            socket.onopen = () => {
+                showNotification({
+                    title: "Connected",
+                    text: "Successfully connected to " + wsUrl,
+                    color: "#095700"
+                });
+            };
+            
+            socket.onmessage = (event) => {
+                if (typeof event.data === "string") {
+                    const msg = JSON.parse(event.data);
+                    if (msg.type === "meta") {
+                        currentDuration = msg.information.duration || 0;
+                        updatePlayerUI(msg.information);
+                    }
+                    if (msg.type === "time") currentTime = msg.currentTime;
+                    return;
+                }
+                pushChunk(event.data);
+                if (!started) {
+                    if (!paused) {
+                        audio.play();
+                    }
+                    started = true;
+                }
+            };
+        }
+        
+        function syncPauseButton() {
+            const btn = document.getElementById("pauseBtn");
+            if (!audio) return;
+            
+            btn.textContent = audio.paused ? "▶" : "⏸";
+        }
+        
+        function togglePause() {
+            if (!audio) return;
+            
+            if (audio.paused) {
+                audio.play();
+            } else {
+                audio.pause();
+            }
+            
+            syncPauseButton();
+        }
+        
+        document.addEventListener("keydown", (e) => {
+            if (e.target.tagName === "INPUT") return;
+            if (e.key === " ") {
+                e.preventDefault();
+                togglePause();
+            }
+        });
+        
+        function showNotification({ title, text, color = "#444" }) {
+            if (!settings.notifications) return;
+            const container = document.getElementById("notifications");
+            if (!container) return;
+            
+            const old = new Map();
+            document.querySelectorAll(".notification").forEach(n =>
+            old.set(n, n.getBoundingClientRect()));
+            
+            const el = document.createElement("div");
+            el.className = "notification";
+            el.style.setProperty("--bg",   color);
+            el.style.setProperty("--glow", color);
+            el.innerHTML = `
+                <div style="font-weight:600;font-size:13px">${title}</div>
+                <div style="font-size:12px;opacity:0.8;margin-top:4px">${text}</div>`;
+            container.prepend(el);
+            
+            requestAnimationFrame(() => {
+                document.querySelectorAll(".notification").forEach(n => {
+                    const prev = old.get(n);
+                    if (!prev) return;
+                    const dy = prev.top - n.getBoundingClientRect().top;
+                    if (dy) {
+                        n.style.transition = "none";
+                        n.style.transform  = `translateY(${dy}px)`;
+                        n.offsetHeight;
+                        n.style.transition = "transform 0.5s cubic-bezier(0.22,1,0.36,1)";
+                        n.style.transform  = "translateY(0)";
+                    }
+                });
+                el.style.transition = "transform 0.5s cubic-bezier(0.22,1,0.36,1), opacity 0.5s ease";
+                el.style.transform  = "translateX(130%)";
+                el.style.opacity    = "0";
+                requestAnimationFrame(() => {
+                    el.style.transform = "translateX(0%)";
+                    el.style.opacity   = "1";
+                });
+            });
+            
+            const close = () => {
+                el.style.transition = "transform 0.5s ease-in, opacity 0.5s ease-in";
+                el.style.transform  = "translateX(130%)";
+                el.style.opacity    = "0";
+                const remove = () => el.remove();
+                el.addEventListener("transitionend", e => {
+                    if (e.propertyName === "transform") remove();
+                });
+                setTimeout(remove, 1200);
+            };
+            setTimeout(close, 4000);
+        }
+    </script>
+</head>
+<body>
+    <div class="layout">
+        
+        <!-- ─── SIDEBAR ─────────────────────────── -->
+        <div class="sidebar" id="sidebarEl">
+            <div class="sidebar-inner">
+                <div class="sidebar-title">History</div>
+                <button class="clear-history" onclick="clearHistory()">✕</button>
+                <div id="history"></div>
+            </div>
+        </div>
+        
+        <!-- ─── MAIN ─────────────────────────────── -->
+        <div class="main">
+            <a style="position:absolute;top:6px;right:10px;opacity:0.18;font-size:11px;color:white;text-decoration:none;">v2.0</a>
+            
+            <!-- TAB BAR -->
+            <div class="tab-bar">
+                <button class="tab-btn active" id="tabPlayer"   onclick="switchTab('player')">Player</button>
+                <button class="tab-btn"         id="tabSettings" onclick="switchTab('settings')">Settings</button>
+            </div>
+            
+            <!-- PANELS CONTAINER -->
+            <div class="tab-panels">
+                
+                <!-- ─ PLAYER PANEL ──────────────── -->
+                <div class="tab-panel" id="playerPanel">
+                    
+                    <!-- Now Playing -->
+                    <div class="now-header">
+                        <div class="art-wrap">
+                            <img id="bigIcon" class="big-icon" />
+                        </div>
+                        <div class="track-info">
+                            <div id="bigTitle"  class="big-title">Not Playing</div>
+                            <div id="bigAuthor" class="big-author">---</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Volume -->
+                    <div class="settings-section">
+                        <div class="section-label">Volume</div>
+                        <div class="settings-card">
+                            <div class="volume-row">
+                                <div class="volume-header">
+                                    <span class="volume-label">Volume</span>
+                                    <span class="volume-val" id="volVal">100%</span>
+                                </div>
+                                <input class="vol-slider" type="range" min="0" max="100" value="100"
+                                id="volSlider" oninput="setVolume(this.value)" />
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div><!-- /playerPanel -->
+                
+                <!-- ─ SETTINGS PANEL ────────────── -->
+                <div class="tab-panel" id="settingsPanel">
+                    
+                    <!-- Notifications -->
+                    <div class="settings-section">
+                        <div class="section-label">Notifications</div>
+                        <div class="settings-card">
+                            <div class="settings-row">
+                                <div>
+                                    <div class="row-label">Enable notifications</div>
+                                    <div class="row-sub">Show notifications when connecting/disconnecting</div>
+                                </div>
+                                <label class="toggle-wrap">
+                                    <input type="checkbox" name="notifications" onchange="setNotifications(this.checked)" />
+                                    <div class="toggle-track"></div>
+                                    <div class="toggle-thumb"></div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Connection -->
+                    <div class="settings-section">
+                        <div class="section-label">Connection</div>
+                        <div class="settings-card">
+                            <div class="settings-row col">
+                                <div class="row-label">WebSocket URL</div>
+                                <input class="ws-input" type="text" id="wsUrlInput" placeholder="WebSocket URL"
+                                onkeydown="if(event.key==='Enter') connectFromInput()" />
+                                <button class="ws-connect-btn" onclick="connectFromInput()">Connect</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- History -->
+                    <div class="settings-section">
+                        <div class="section-label">History</div>
+                        <div class="settings-card">
+                            <div class="settings-row">
+                                <div>
+                                    <div class="row-label">Show sidebar</div>
+                                    <div class="row-sub">Display the history sidebar</div>
+                                </div>
+                                <label class="toggle-wrap">
+                                    <input type="checkbox" name="sidebar" onchange="setSidebar(this.checked)" />
+                                    <div class="toggle-track"></div>
+                                    <div class="toggle-thumb"></div>
+                                </label>
+                            </div>
+                            <div class="settings-row">
+                                <div>
+                                    <div class="row-label">Save &amp; restore on reload</div>
+                                    <div class="row-sub">Persist history across page refreshes</div>
+                                </div>
+                                <label class="toggle-wrap">
+                                    <input type="checkbox" name="saveHistory" onchange="setSaveHistory(this.checked)" />
+                                    <div class="toggle-track"></div>
+                                    <div class="toggle-thumb"></div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Display -->
+                    <div class="settings-section">
+                        <div class="section-label">Display</div>
+                        <div class="settings-card">
+                            <div class="settings-row">
+                                <div>
+                                    <div class="row-label">Animations</div>
+                                    <div class="row-sub">Enable UI motion and transitions</div>
+                                </div>
+                                <label class="toggle-wrap">
+                                    <input type="checkbox" name="animations" onchange="setAnimations(this.checked)" />
+                                    <div class="toggle-track"></div>
+                                    <div class="toggle-thumb"></div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- About -->
+                    <div class="settings-section">
+                        <div class="section-label">Server</div>
+                        <div class="settings-card">
+                            <div class="settings-row col" style="gap:10px;">
+                                <div>
+                                    <div class="row-label">Server repository</div>
+                                    <div class="row-sub">Download the server code and create your own radio</div>
+                                </div>
+                                <a class="repo-btn" href="https://github.com/gixtuh/wsradio" target="_blank">
+                                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0">
+                                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                                    </svg>
+                                    Server code
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div><!-- /settingsPanel -->
+                
+            </div><!-- /tab-panels -->
+        </div><!-- /main -->
+        
+        <!-- ─── BOTTOM PLAYER BAR ────────────────── -->
+        <div class="player" id="playerBar">
+            <img id="icon" class="icon" />
+            <div class="meta">
+                <div id="title"  class="title">---</div>
+                <div id="author" class="author">---</div>
+            </div>
+            <div class="controls">
+                <button id="pauseBtn" onclick="togglePause()">▶</button>
+            </div>
+            <div class="progress-wrap">
+                <div class="progress-bar">
+                    <div id="progress-fill"></div>
+                </div>
+            </div>
+            <div id="duration" class="author">0:00 / 0:00</div>
+        </div>
+        
+        <audio id="audio"></audio>
+    </div>
+    
+    <div id="notifications"></div>
+</body>
+</html>
